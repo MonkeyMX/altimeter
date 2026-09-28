@@ -123,6 +123,26 @@ body{
 .bar{margin-top:8px;height:3px;background:var(--grid);position:relative}
 .bar span{position:absolute;inset:0 auto 0 0;background:var(--mid);width:0;transition:width .6s ease}
 
+[hidden]{display:none!important}
+
+/* location */
+.loc{grid-column:1/-1}
+.loc .label{align-items:center}
+.loc-tags{display:flex;align-items:center;gap:8px}
+.loc-tags i{font-style:normal;letter-spacing:.14em}
+.loc-tags i[data-src="offline"]{color:var(--bad);opacity:1;text-shadow:0 0 8px rgba(255,122,107,.35)}
+.loc-tags i[data-src="online"]{color:var(--good);opacity:1;text-shadow:0 0 8px rgba(108,255,168,.45)}
+button.keybtn{padding:3px 7px;font-size:9px;letter-spacing:.16em;border-color:var(--line);color:var(--dim)}
+.loc-main{margin-top:6px;font-family:var(--display);font-weight:600;font-size:clamp(18px,5.4vw,24px);line-height:1.15;color:var(--ice);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.loc-main .zh{font-family:"PingFang SC","Hiragino Sans GB",system-ui,sans-serif;font-weight:500;margin-left:8px}
+.loc-sub,.loc-online{margin-top:4px;font-size:11px;line-height:1.45;color:var(--mid);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.loc-sub .zh,.loc-online{font-family:"PingFang SC","Hiragino Sans GB",var(--mono)}
+.loc-online{color:var(--ice)}
+.loc-online.err{color:var(--amber)}
+.keyform{display:flex;gap:6px;margin-top:8px}
+.keyform input{flex:1;min-width:0;font:12px var(--mono);color:var(--ice);background:var(--bg);border:1px solid var(--line);padding:8px;-webkit-user-select:text;user-select:text}
+.keyform button{padding:8px 10px;font-size:10px}
+
 /* controls */
 .controls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 button{
@@ -170,6 +190,16 @@ button:active{transform:translateY(1px)}
   </section>
 
   <section class="data">
+    <div class="cell loc" id="locCell">
+      <div class="label">Location <span class="loc-tags"><i id="locSrc" data-src="offline">offline</i><button type="button" class="keybtn" id="keyBtn" aria-expanded="false">Key</button></span></div>
+      <div class="loc-main" id="locMain">--</div>
+      <div class="loc-sub" id="locSub"></div>
+      <div class="loc-online" id="locOnline" hidden></div>
+      <form class="keyform" id="keyForm" hidden>
+        <input id="keyInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Amap Web Service key">
+        <button type="submit">Save</button><button type="button" id="keyClear">Clear</button>
+      </form>
+    </div>
     <div class="cell"><div class="label">Latitude</div><div class="val" id="lat">--</div></div>
     <div class="cell"><div class="label">Longitude</div><div class="val" id="lon">--</div></div>
     <div class="cell"><div class="label">Pressure <i>ISA est.</i></div><div class="val" id="pres">--<small>hPa</small></div><div class="bar"><span id="presBar"></span></div></div>
@@ -184,7 +214,7 @@ button:active{transform:translateY(1px)}
 
 <script>
 (() => {
-  const VERSION = 'v4';
+  const VERSION = 'v6';
   const $ = id => document.getElementById(id);
   const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),haccWrap:$('haccWrap'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     presBar:$('presBar'),o2Bar:$('o2Bar'),status:$('status'),statusText:$('statusText'),msg:$('msg'),
@@ -227,6 +257,7 @@ button:active{transform:translateY(1px)}
     showAcc(els.hacc, els.haccWrap, d.hacc);
     els.lat.textContent = fmtCoord(d.lat, 'N', 'S');
     els.lon.textContent = fmtCoord(d.lon, 'E', 'W');
+    place.update(d.lat, d.lon, d.hacc);
     if (d.alt != null){
       const p = pressureAt(Math.max(d.alt, -500));
       const r = p / P0;
@@ -284,6 +315,181 @@ button:active{transform:translateY(1px)}
     }
     ctx.globalAlpha = 1;
   }
+
+  // ---------- place lookup ----------
+  // Offline: county polygons (AreaCity ok_geo.csv, WGS-84) + nearest GeoNames town.
+  // Online (optional): Amap reverse geocoding with the user's own key, stored only on this device.
+  const place = (() => {
+    const KEY = 'altimeter.amapKey';
+    const $l = {main: $('locMain'), sub: $('locSub'), online: $('locOnline'), src: $('locSrc'),
+      btn: $('keyBtn'), form: $('keyForm'), input: $('keyInput'), clear: $('keyClear')};
+    let counties = null, towns = null, cur = null, lastCalc = null, offline = null;
+    let online = null, onlineErr = '', lastLookup = null, inflight = false;
+
+    const toR = Math.PI / 180;
+    function distKm(a1, o1, a2, o2){
+      const dA = (a2 - a1) * toR, dO = (o2 - o1) * toR;
+      const h = Math.sin(dA / 2) ** 2 + Math.cos(a1 * toR) * Math.cos(a2 * toR) * Math.sin(dO / 2) ** 2;
+      return 12742 * Math.asin(Math.sqrt(h));
+    }
+    function compass(a1, o1, a2, o2){ // direction from point 1 to point 2
+      const y = Math.sin((o2 - o1) * toR) * Math.cos(a2 * toR);
+      const x = Math.cos(a1 * toR) * Math.sin(a2 * toR) - Math.sin(a1 * toR) * Math.cos(a2 * toR) * Math.cos((o2 - o1) * toR);
+      const deg = (Math.atan2(y, x) / toR + 360) % 360;
+      return ['N','NE','E','SE','S','SW','W','NW'][Math.round(deg / 45) % 8];
+    }
+    function getKey(){ if (window.__ALT_MOCK_REGEO) return 'mock'; try { return localStorage.getItem(KEY) || ''; } catch(_) { return ''; } }
+    function setKey(k){ try { k ? localStorage.setItem(KEY, k) : localStorage.removeItem(KEY); } catch(_) {} }
+
+    function decode(d){
+      return d.u.map(u => {
+        let b = [1e9, 1e9, -1e9, -1e9];
+        const rings = u.r.map(enc => {
+          const p = new Float64Array(enc.length); let x = 0, y = 0;
+          for (let i = 0; i < enc.length; i += 2){
+            x += enc[i]; y += enc[i + 1]; p[i] = x / 1000; p[i + 1] = y / 1000;
+            if (p[i] < b[0]) b[0] = p[i]; if (p[i] > b[2]) b[2] = p[i];
+            if (p[i + 1] < b[1]) b[1] = p[i + 1]; if (p[i + 1] > b[3]) b[3] = p[i + 1];
+          }
+          return p;
+        });
+        return {n: u.n, p: u.p, py: u.py, rings, b};
+      });
+    }
+    function inRing(p, x, y){
+      let c = false;
+      for (let i = 0, j = p.length - 2; i < p.length; j = i, i += 2){
+        const xi = p[i], yi = p[i + 1], xj = p[j], yj = p[j + 1];
+        if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) c = !c;
+      }
+      return c;
+    }
+    function findCounty(lat, lon){
+      for (const u of counties){
+        const b = u.b;
+        if (lon < b[0] || lon > b[2] || lat < b[1] || lat > b[3]) continue;
+        for (const r of u.rings) if (inRing(r, lon, lat)) return u;
+      }
+      return null;
+    }
+    function nearestTown(lat, lon){
+      let best = null, bd = Infinity; const k = Math.cos(lat * toR);
+      for (const t of towns){ const dy = t[2] - lat, dx = (t[3] - lon) * k, d = dx * dx + dy * dy; if (d < bd){ bd = d; best = t; } }
+      if (!best) return null;
+      return {en: best[0], zh: best[1], km: distKm(best[2], best[3], lat, lon), dir: compass(best[2], best[3], lat, lon)};
+    }
+
+    function span(cls, text){ const e = document.createElement('span'); if (cls) e.className = cls; e.textContent = text; return e; }
+    function draw(){
+      const o = offline;
+      $l.main.replaceChildren(); $l.sub.replaceChildren();
+      if (!counties){ $l.main.textContent = cur ? 'Loading place data…' : '--'; }
+      else if (o && o.county){
+        $l.main.append(o.county.py.toUpperCase(), span('zh', o.county.n));
+        const path = o.county.p.filter((v, i, a) => a.indexOf(v) === i).join(' · ');
+        $l.sub.append(span('zh', path));
+      } else if (o){ $l.main.textContent = 'Outside county data'; }
+      else { $l.main.textContent = '--'; }
+      if (o && o.town && o.town.km <= 30){
+        const km = o.town.km < 1 ? '<1' : o.town.km < 10 ? o.town.km.toFixed(1) : Math.round(o.town.km);
+        if ($l.sub.childNodes.length) $l.sub.append(' · ');
+        $l.sub.append(km + ' km ' + o.town.dir + ' of ' + o.town.en);
+        if (o.town.zh) $l.sub.append(span('zh', ' ' + o.town.zh));
+      }
+      const useOnline = online && cur && distKm(online.lat, online.lon, cur.lat, cur.lon) < 0.5;
+      $l.src.textContent = useOnline ? 'online' : 'offline';
+      $l.src.dataset.src = useOnline ? 'online' : 'offline';
+      $l.online.classList.toggle('err', !!onlineErr && !useOnline);
+      if (useOnline){
+        const bits = [online.town, online.near ? online.near + (online.nearM != null ? ' ' + online.nearM + ' m' : '') : ''].filter(Boolean);
+        $l.online.textContent = bits.join(' · ') || online.addr || '';
+        $l.online.hidden = !$l.online.textContent;
+      } else if (onlineErr){
+        $l.online.textContent = 'Amap: ' + onlineErr; $l.online.hidden = false;
+      } else { $l.online.hidden = true; }
+    }
+
+    function wgs2gcj(lat, lon){
+      if (lon < 72.004 || lon > 137.8347 || lat < 0.8293 || lat > 55.8271) return [lat, lon];
+      const a = 6378245.0, ee = 0.00669342162296594323, x = lon - 105, y = lat - 35;
+      let dLat = -100 + 2 * x + 3 * y + 0.2 * y * y + 0.1 * x * y + 0.2 * Math.sqrt(Math.abs(x));
+      dLat += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+      dLat += (20 * Math.sin(y * Math.PI) + 40 * Math.sin(y / 3 * Math.PI)) * 2 / 3;
+      dLat += (160 * Math.sin(y / 12 * Math.PI) + 320 * Math.sin(y * Math.PI / 30)) * 2 / 3;
+      let dLon = 300 + x + 2 * y + 0.1 * x * x + 0.1 * x * y + 0.1 * Math.sqrt(Math.abs(x));
+      dLon += (20 * Math.sin(6 * x * Math.PI) + 20 * Math.sin(2 * x * Math.PI)) * 2 / 3;
+      dLon += (20 * Math.sin(x * Math.PI) + 40 * Math.sin(x / 3 * Math.PI)) * 2 / 3;
+      dLon += (150 * Math.sin(x / 12 * Math.PI) + 300 * Math.sin(x / 30 * Math.PI)) * 2 / 3;
+      const rl = lat * toR; let m = Math.sin(rl); m = 1 - ee * m * m; const sm = Math.sqrt(m);
+      dLat = dLat * 180 / ((a * (1 - ee)) / (m * sm) * Math.PI);
+      dLon = dLon * 180 / (a / sm * Math.cos(rl) * Math.PI);
+      return [lat + dLat, lon + dLon];
+    }
+    function regeo(lat, lon){
+      if (window.__ALT_MOCK_REGEO) return Promise.resolve(window.__ALT_MOCK_REGEO(lat, lon));
+      return new Promise((resolve, reject) => {
+        const [glat, glon] = wgs2gcj(lat, lon);
+        const cb = '__amapCb' + Date.now(), s = document.createElement('script');
+        const done = () => { clearTimeout(t); delete window[cb]; s.remove(); };
+        const t = setTimeout(() => { done(); reject(new Error('timeout')); }, 8000);
+        window[cb] = d => { done(); resolve(d); };
+        s.onerror = () => { done(); reject(new Error('network')); };
+        s.src = 'https://restapi.amap.com/v3/geocode/regeo?key=' + encodeURIComponent(getKey()) +
+          '&location=' + glon.toFixed(6) + ',' + glat.toFixed(6) + '&extensions=all&radius=1000&output=JSON&callback=' + cb;
+        document.head.appendChild(s);
+      });
+    }
+    const str = v => typeof v === 'string' ? v : '';
+    function lookupOnline(){
+      if (!cur || !getKey() || inflight || navigator.onLine === false) return;
+      if (cur.acc != null && cur.acc > 200) return;
+      if (lastLookup && distKm(lastLookup.lat, lastLookup.lon, cur.lat, cur.lon) < 0.3 && Date.now() - lastLookup.time < 600000) return;
+      inflight = true; const at = {lat: cur.lat, lon: cur.lon, time: Date.now()}; lastLookup = at;
+      regeo(at.lat, at.lon).then(d => {
+        if (d && d.status === '1' && d.regeocode){
+          const r = d.regeocode, ac = r.addressComponent || {}, aoi = (r.aois || [])[0], poi = (r.pois || [])[0];
+          online = {lat: at.lat, lon: at.lon, town: str(ac.township),
+            near: aoi ? str(aoi.name) : poi ? str(poi.name) : '',
+            nearM: !aoi && poi && poi.distance !== '' && !isNaN(+poi.distance) ? Math.round(+poi.distance) : null,
+            addr: str(r.formatted_address)};
+          onlineErr = '';
+        } else { onlineErr = (d && d.info) ? String(d.info) : 'lookup failed'; }
+      }).catch(() => { if (lastLookup) lastLookup.time = Date.now() - 540000; })   // network failure: retry in ~1 min
+        .finally(() => { inflight = false; draw(); });
+    }
+
+    function update(lat, lon, acc){
+      if (lat == null || lon == null) return;
+      cur = {lat, lon, acc};
+      if (counties && (!lastCalc || distKm(lastCalc.lat, lastCalc.lon, lat, lon) > 0.05)){
+        lastCalc = {lat, lon};
+        offline = {county: findCounty(lat, lon), town: towns && towns.length ? nearestTown(lat, lon) : null};
+      }
+      draw(); lookupOnline();
+    }
+    function load(){
+      const pre = window.__ALT_DATA;
+      const get = n => pre ? Promise.resolve(pre[n]) : fetch('places/' + n + '.json').then(r => { if (!r.ok) throw new Error(r.status); return r.json(); });
+      Promise.all([get('counties'), get('towns')]).then(([c, t]) => {
+        counties = decode(c); towns = t.t; lastCalc = null;
+        if (cur) update(cur.lat, cur.lon, cur.acc); else draw();
+      }).catch(() => { $l.main.textContent = 'Place data unavailable'; });
+    }
+
+    $l.btn.addEventListener('click', () => {
+      const open = $l.form.hidden; $l.form.hidden = !open; $l.btn.setAttribute('aria-expanded', open);
+      if (open){ $l.input.value = getKey() === 'mock' ? '' : getKey(); $l.input.focus(); }
+    });
+    $l.form.addEventListener('submit', e => {
+      e.preventDefault(); setKey($l.input.value.trim()); $l.form.hidden = true; $l.btn.setAttribute('aria-expanded', 'false');
+      online = null; onlineErr = ''; lastLookup = null; lookupOnline(); draw();
+    });
+    $l.clear.addEventListener('click', () => { setKey(''); $l.input.value = ''; online = null; onlineErr = ''; draw(); });
+    addEventListener('online', lookupOnline);
+
+    load();
+    return {update};
+  })();
 
   function median(a){ const s = [...a].sort((x, y) => x - y); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
 
