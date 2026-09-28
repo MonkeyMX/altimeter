@@ -27,6 +27,7 @@
   --ice:#B8F3FF;
   --glow:rgba(120,230,255,.45);
   --amber:#FFB547;
+  --good:#6CFFA8;
   --display:"Chakra Petch","DIN Alternate","Avenir Next Condensed",ui-sans-serif,system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
 }
@@ -64,6 +65,9 @@ body{
   font-family:var(--display);font-weight:500;letter-spacing:.22em;font-size:11px;color:var(--mid);text-transform:uppercase}
 .brand{display:flex;align-items:center;gap:10px}
 .brand svg{width:18px;height:18px}
+.ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--dim);text-transform:none}
+.sub .vacc-wrap{transition:color .3s}
+.sub .vacc-wrap.good,.sub .vacc-wrap.good b{color:var(--good);text-shadow:0 0 8px rgba(108,255,168,.45)}
 .status{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 9px;border:1px solid var(--line);
   font-family:var(--mono);letter-spacing:.12em;font-size:10px;color:var(--mid);background:rgba(4,9,11,.6)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
@@ -77,8 +81,8 @@ body{
 @keyframes pulse{50%{opacity:.25}}
 
 /* main readout */
-.main{position:relative;display:grid;grid-template-columns:1fr 54px;gap:10px;min-height:0}
-.readout{position:relative;display:flex;flex-direction:column;justify-content:center;padding:18px 16px;min-width:0}
+.main{position:relative;display:grid;grid-template-columns:1fr 46px;gap:10px;min-height:0}
+.readout{position:relative;display:flex;flex-direction:column;justify-content:center;padding:18px 12px;min-width:0}
 .corner{position:absolute;width:22px;height:22px;border-color:var(--mid);border-style:solid;opacity:.8}
 .c-tl{top:0;left:0;border-width:1.5px 0 0 1.5px}
 .c-tr{top:0;right:0;border-width:1.5px 1.5px 0 0}
@@ -88,7 +92,7 @@ body{
 .alt-row{display:flex;align-items:flex-end;gap:6px;margin-top:6px;min-width:0}
 .alt{
   font-family:var(--display);font-weight:600;
-  font-size:clamp(84px, 29vw, 230px);line-height:.86;letter-spacing:-.02em;
+  font-size:clamp(72px, 24vw, 200px);line-height:.86;letter-spacing:-.02em;
   font-variant-numeric:tabular-nums;color:var(--ice);
   text-shadow:0 0 18px var(--glow),0 0 2px rgba(255,255,255,.6);
   white-space:nowrap;
@@ -141,6 +145,7 @@ button:active{transform:translateY(1px)}
     <div class="brand">
       <svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M2 20 9 7l4 7 3-4 6 10H2Z" stroke="#86BBC6" stroke-width="1.6" stroke-linejoin="round"/><path d="M9 7l1.6 3" stroke="#B8F3FF" stroke-width="1.6"/></svg>
       <span>Altimeter</span>
+      <span class="ver" id="ver"></span>
     </div>
     <div class="status" id="status" data-state="search" role="status" aria-live="polite"><span class="dot"></span><span id="statusText">SEARCHING</span></div>
   </header>
@@ -151,7 +156,8 @@ button:active{transform:translateY(1px)}
       <div class="label">Altitude · above sea level</div>
       <div class="alt-row"><div class="alt" id="alt">----</div><div class="unit">M</div></div>
       <div class="sub">
-        <span>V-ACC <b id="vacc">±--</b> m</span>
+        <span class="vacc-wrap" id="vaccWrap">V-ACC <b id="vacc">±--</b> m</span>
+        <span>H-ACC <b id="hacc">±--</b> m</span>
         <span>FIX <b id="age">--</b></span>
       </div>
       <div class="msg" id="msg" hidden></div>
@@ -174,8 +180,9 @@ button:active{transform:translateY(1px)}
 
 <script>
 (() => {
+  const VERSION = 'v2';
   const $ = id => document.getElementById(id);
-  const els = {alt:$('alt'),vacc:$('vacc'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
+  const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     presBar:$('presBar'),o2Bar:$('o2Bar'),status:$('status'),statusText:$('statusText'),msg:$('msg'),
     hold:$('holdBtn'),wake:$('wakeBtn'),tape:$('tape')};
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -204,6 +211,8 @@ button:active{transform:translateY(1px)}
   function render(d){
     target = d.alt;
     els.vacc.textContent = d.vacc != null ? '±' + Math.round(d.vacc) : '±--';
+    els.vaccWrap.classList.toggle('good', d.vacc != null && d.vacc <= 10);
+    els.hacc.textContent = d.hacc != null ? '±' + Math.round(d.hacc) : '±--';
     els.lat.textContent = fmtCoord(d.lat, 'N', 'S');
     els.lon.textContent = fmtCoord(d.lon, 'E', 'W');
     if (d.alt != null){
@@ -273,19 +282,19 @@ button:active{transform:translateY(1px)}
     if (c.altitude == null){
       setStatus('error', 'NO ALTITUDE');
       setMsg('Position found, but no altitude yet. Altitude needs a real GPS fix: go outdoors and turn on Precise Location for Safari.');
-      render({alt: null, vacc: null, lat: c.latitude, lon: c.longitude});
+      render({alt: null, vacc: null, hacc: c.accuracy, lat: c.latitude, lon: c.longitude});
       return;
     }
     recent.push(c.altitude); if (recent.length > 5) recent.shift();
     setStatus('lock', 'GPS LOCK');
     setMsg('');
-    render({alt: median(recent), vacc: c.altitudeAccuracy, lat: c.latitude, lon: c.longitude});
+    render({alt: median(recent), vacc: c.altitudeAccuracy, hacc: c.accuracy, lat: c.latitude, lon: c.longitude});
   }
 
   function showDemo(reason){
     setStatus('demo', 'DEMO DATA');
     setMsg(reason);
-    render({alt: 4718, vacc: 6, lat: 30.70312, lon: 90.63418});
+    render({alt: 4718, vacc: 6, hacc: 4, lat: 30.70312, lon: 90.63418});
   }
 
   function onErr(e){
@@ -328,6 +337,7 @@ button:active{transform:translateY(1px)}
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
+  $('ver').textContent = VERSION;
   requestAnimationFrame(tick);
   start();
 })();
