@@ -53,14 +53,17 @@
 
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
-html,body{height:100%}
+/* iOS home-screen apps with a translucent status bar lay the page out one status-bar height short,
+   which leaves an unpainted black strip at the bottom; extend the page by that inset. */
+html{height:calc(100% + env(safe-area-inset-top,0px))}
+body{height:100%;position:relative}
 body{
   background:linear-gradient(180deg,var(--bg-top) 0%,var(--bg) 55%,var(--bg-bottom) 100%);
   color:var(--text);font:500 12px/1.45 var(--ui);
   -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
   -webkit-user-select:none;user-select:none;overflow:hidden;overscroll-behavior:none;
 }
-#topo{position:fixed;inset:0;width:100%;height:100%;pointer-events:none}
+#topo{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
 .app{
   position:relative;height:100%;
   display:grid;grid-template-rows:auto 1fr auto auto auto;gap:12px;
@@ -186,7 +189,7 @@ button:active{transform:translateY(1px)}
 
 <script>
 (() => {
-  const VERSION = 'v2.0.0';
+  const VERSION = 'v2.0.1';
   const $ = id => document.getElementById(id);
   const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),haccWrap:$('haccWrap'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     status:$('status'),statusText:$('statusText'),msg:$('msg'),
@@ -261,7 +264,7 @@ button:active{transform:translateY(1px)}
     const c = $('topo'), x = c.getContext('2d'); let band = -1;
     const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
     function draw(){
-      const dpr = window.devicePixelRatio || 1, W = innerWidth, H = innerHeight;
+      const dpr = window.devicePixelRatio || 1, W = c.clientWidth || innerWidth, H = c.clientHeight || innerHeight;
       c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, W, H);
       const cx = W * 0.78, cy = H * 0.34, cl = cssVar('--topo'), cm = cssVar('--topo-major'), ch = cssVar('--topo-hi');
       const hi = band < 0 ? -1 : 6 + (band % 11);   // stays within the rings visible behind the number
