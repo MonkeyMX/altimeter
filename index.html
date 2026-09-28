@@ -28,6 +28,7 @@
   --glow:rgba(120,230,255,.45);
   --amber:#FFB547;
   --good:#6CFFA8;
+  --bad:#FF7A6B;
   --display:"Chakra Petch","DIN Alternate","Avenir Next Condensed",ui-sans-serif,system-ui,sans-serif;
   --mono:"JetBrains Mono",ui-monospace,"SF Mono",Menlo,monospace;
 }
@@ -66,8 +67,11 @@ body{
 .brand{display:flex;align-items:center;gap:10px}
 .brand svg{width:18px;height:18px}
 .ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--dim);text-transform:none}
-.sub .vacc-wrap{transition:color .3s}
-.sub .vacc-wrap.good,.sub .vacc-wrap.good b{color:var(--good);text-shadow:0 0 8px rgba(108,255,168,.45)}
+/* accuracy tiers: <=10 good, 11-20 warn, 21-50 default, >50 or missing bad */
+.sub .acc,.sub .acc b{transition:color .3s,text-shadow .3s}
+.sub .acc.good,.sub .acc.good b{color:var(--good);text-shadow:0 0 8px rgba(108,255,168,.45)}
+.sub .acc.warn,.sub .acc.warn b{color:var(--amber);text-shadow:0 0 8px rgba(255,181,71,.35)}
+.sub .acc.bad,.sub .acc.bad b{color:var(--bad);text-shadow:0 0 8px rgba(255,122,107,.35)}
 .status{display:flex;align-items:center;gap:8px;padding:5px 10px 5px 9px;border:1px solid var(--line);
   font-family:var(--mono);letter-spacing:.12em;font-size:10px;color:var(--mid);background:rgba(4,9,11,.6)}
 .dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
@@ -156,8 +160,8 @@ button:active{transform:translateY(1px)}
       <div class="label">Altitude · above sea level</div>
       <div class="alt-row"><div class="alt" id="alt">----</div><div class="unit">M</div></div>
       <div class="sub">
-        <span class="vacc-wrap" id="vaccWrap">V-ACC <b id="vacc">±--</b> m</span>
-        <span>H-ACC <b id="hacc">±--</b> m</span>
+        <span class="acc" id="vaccWrap">V-ACC <b id="vacc">±--</b> m</span>
+        <span class="acc" id="haccWrap">H-ACC <b id="hacc">±--</b> m</span>
         <span>FIX <b id="age">--</b></span>
       </div>
       <div class="msg" id="msg" hidden></div>
@@ -180,9 +184,9 @@ button:active{transform:translateY(1px)}
 
 <script>
 (() => {
-  const VERSION = 'v2';
+  const VERSION = 'v3';
   const $ = id => document.getElementById(id);
-  const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
+  const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),haccWrap:$('haccWrap'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     presBar:$('presBar'),o2Bar:$('o2Bar'),status:$('status'),statusText:$('statusText'),msg:$('msg'),
     hold:$('holdBtn'),wake:$('wakeBtn'),tape:$('tape')};
   const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -208,11 +212,19 @@ button:active{transform:translateY(1px)}
   }
   function setMsg(t){ els.msg.hidden = !t; els.msg.textContent = t || ''; }
 
+  // tier uses the rounded value shown on screen
+  function showAcc(valEl, wrapEl, v){
+    const r = v != null && isFinite(v) ? Math.round(v) : null;
+    valEl.textContent = r != null ? '±' + r : '±--';
+    const tier = r == null ? 'bad' : r <= 10 ? 'good' : r <= 20 ? 'warn' : r <= 50 ? '' : 'bad';
+    wrapEl.classList.remove('good', 'warn', 'bad');
+    if (tier) wrapEl.classList.add(tier);
+  }
+
   function render(d){
     target = d.alt;
-    els.vacc.textContent = d.vacc != null ? '±' + Math.round(d.vacc) : '±--';
-    els.vaccWrap.classList.toggle('good', d.vacc != null && d.vacc <= 10);
-    els.hacc.textContent = d.hacc != null ? '±' + Math.round(d.hacc) : '±--';
+    showAcc(els.vacc, els.vaccWrap, d.vacc);
+    showAcc(els.hacc, els.haccWrap, d.hacc);
     els.lat.textContent = fmtCoord(d.lat, 'N', 'S');
     els.lon.textContent = fmtCoord(d.lon, 'E', 'W');
     if (d.alt != null){
@@ -338,6 +350,7 @@ button:active{transform:translateY(1px)}
   }
 
   $('ver').textContent = VERSION;
+  showAcc(els.vacc, els.vaccWrap, null); showAcc(els.hacc, els.haccWrap, null);
   requestAnimationFrame(tick);
   start();
 })();
