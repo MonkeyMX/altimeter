@@ -67,7 +67,7 @@ body{
 .brand{display:flex;align-items:center;gap:10px}
 .brand svg{width:18px;height:18px}
 .ver{font-family:var(--mono);font-size:9.5px;letter-spacing:.12em;color:var(--dim);text-transform:none}
-/* accuracy tiers: <=10 good, 11-20 warn, 21-50 default, >50 or missing bad */
+/* accuracy tiers: <=10 good, 11-20 default, 21-50 warn, >50 or missing bad */
 .sub .acc,.sub .acc b{transition:color .3s,text-shadow .3s}
 .sub .acc.good,.sub .acc.good b{color:var(--good);text-shadow:0 0 8px rgba(108,255,168,.45)}
 .sub .acc.warn,.sub .acc.warn b{color:var(--amber);text-shadow:0 0 8px rgba(255,181,71,.35)}
@@ -184,7 +184,7 @@ button:active{transform:translateY(1px)}
 
 <script>
 (() => {
-  const VERSION = 'v3';
+  const VERSION = 'v4';
   const $ = id => document.getElementById(id);
   const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),haccWrap:$('haccWrap'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     presBar:$('presBar'),o2Bar:$('o2Bar'),status:$('status'),statusText:$('statusText'),msg:$('msg'),
@@ -216,7 +216,7 @@ button:active{transform:translateY(1px)}
   function showAcc(valEl, wrapEl, v){
     const r = v != null && isFinite(v) ? Math.round(v) : null;
     valEl.textContent = r != null ? '±' + r : '±--';
-    const tier = r == null ? 'bad' : r <= 10 ? 'good' : r <= 20 ? 'warn' : r <= 50 ? '' : 'bad';
+    const tier = r == null ? 'bad' : r <= 10 ? 'good' : r <= 20 ? '' : r <= 50 ? 'warn' : 'bad';
     wrapEl.classList.remove('good', 'warn', 'bad');
     if (tier) wrapEl.classList.add(tier);
   }
