@@ -1,4 +1,4 @@
-const CACHE='altimeter-v2.1.0';
+const CACHE='altimeter-v2.2.0';
 const FILES=['./','./index.html','./manifest.webmanifest','./icon-180.png','./icon-512.png','./places/counties.json','./places/towns.json'];
 // cache:'reload' makes the install download fresh copies instead of reusing the browser's HTTP cache
 self.addEventListener('install',e=>{e.waitUntil(caches.open(CACHE).then(c=>c.addAll(FILES.map(u=>new Request(u,{cache:'reload'})))));self.skipWaiting();});

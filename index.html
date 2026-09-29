@@ -186,6 +186,30 @@ button.use{padding:0 12px;height:34px;font-size:10px}
 .dlg p{color:var(--dim);font-size:12.5px;margin-top:8px;line-height:1.5}
 .dlg .mono{color:var(--text);margin-top:8px}
 .dlg .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+.stat-btn{cursor:pointer;border-radius:6px}
+.stat-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.stat-btn:active{background:var(--btn)}
+i.info{display:inline-grid;place-items:center;width:13px;height:13px;border:1px solid currentColor;border-radius:50%;font:700 8.5px/1 var(--ui);font-style:normal;letter-spacing:0;margin-left:4px;vertical-align:1px}
+.info-dlg{width:min(100%,380px);max-height:min(52vh,52svh,460px);display:flex;flex-direction:column;padding:16px 16px 10px}
+.info-dlg h3{font:600 22px/1.2 var(--display)}
+.info-dlg .live{margin-top:6px;font:600 15px var(--display);color:var(--accent)}
+.info-body{overflow-y:auto;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;margin-top:10px;padding:0 2px 12px 0;border-top:1px solid var(--line);
+  -webkit-mask-image:linear-gradient(180deg,#000 calc(100% - 22px),transparent);mask-image:linear-gradient(180deg,#000 calc(100% - 22px),transparent)}
+.info-body details{border-bottom:1px solid var(--line)}
+.info-body summary{list-style:none;cursor:default;display:flex;justify-content:space-between;align-items:center;padding:12px 2px;font:700 10.5px var(--ui);letter-spacing:.22em;color:var(--accent);text-transform:uppercase}
+.info-body summary::-webkit-details-marker{display:none}
+.info-body summary{padding-right:0}
+.info-body summary:focus{outline:none}
+button.chev{flex:none;width:32px;height:32px;margin:-6px -4px -6px 8px;padding:0;border-radius:50%;border:1px solid transparent;background:transparent;color:var(--accent);display:grid;place-items:center;cursor:pointer}
+button.chev::before{content:"";width:7px;height:7px;border-right:1.6px solid currentColor;border-bottom:1.6px solid currentColor;transform:translateY(2px) rotate(-135deg);transition:transform .2s}
+details:not([open]) > summary button.chev::before{transform:translateY(-2px) rotate(45deg)}
+button.chev:active{background:var(--btn);border-color:var(--line)}
+.info-body details > :not(summary){margin-bottom:10px}
+.info-body details > p + p{margin-top:0}
+.info-body p,.info-body li{color:var(--text);font-size:12.5px;line-height:1.55}
+.info-body ul{padding-left:16px;display:grid;gap:6px}
+.formula{margin:8px 0;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--card);font:11px/1.8 ui-monospace,"SF Mono",Menlo,monospace;color:var(--text);white-space:nowrap;overflow-x:auto}
+.info-body .src{color:var(--dim);font-size:11px;line-height:1.5}
 button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
 
 @media (max-height:700px){
@@ -227,8 +251,8 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
   <section class="stats">
     <div><span>LAT</span><b id="lat">--</b></div>
     <div><span>LON</span><b id="lon">--</b></div>
-    <div><span>hPa EST.</span><b id="pres">--</b></div>
-    <div><span>O₂ EST.</span><b id="o2">--</b></div>
+    <div class="stat-btn" id="pCell" role="button" tabindex="0" aria-haspopup="dialog" aria-label="Air pressure estimate, tap for an explanation"><span>hPa EST. <i class="info" aria-hidden="true">i</i></span><b id="pres">--</b></div>
+    <div class="stat-btn" id="o2Cell" role="button" tabindex="0" aria-haspopup="dialog" aria-label="O₂ estimate, tap for an explanation"><span>O₂ EST. <i class="info" aria-hidden="true">i</i></span><b id="o2">--</b></div>
   </section>
 
   <nav class="btns">
@@ -287,11 +311,82 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
     <div class="acts"><button type="button" id="dlgCancel">Cancel</button><button type="button" class="danger" id="dlgOk">Delete</button></div>
   </div>
 </div>
+<div class="dlg-wrap" id="pDlg" hidden>
+  <div class="dlg info-dlg" role="dialog" aria-modal="true" aria-labelledby="pTitle">
+    <div class="dr-head">
+      <h3 id="pTitle">Air pressure</h3>
+      <button class="icon" id="pClose" type="button" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="live" id="pLive">—</div>
+    <div class="info-body">
+      <details open>
+        <summary tabindex="-1"><span>What it means</span><button type="button" class="chev" aria-expanded="true" aria-label="Collapse What it means"></button></summary>
+        <p id="pMean">hPa EST. is the estimated air pressure at your altitude: the weight of the air above you.</p>
+        <p>1 hPa (hectopascal) = 100 Pa = 1 millibar. Standard sea-level pressure is 1013.25 hPa, or 29.92 inches of mercury.</p>
+      </details>
+      <details open>
+        <summary tabindex="-1"><span>How it is estimated</span><button type="button" class="chev" aria-expanded="true" aria-label="Collapse How it is estimated"></button></summary>
+        <p>The app converts your GPS altitude <i>h</i> (metres) into pressure with the International Standard Atmosphere formula:</p>
+        <div class="formula">P = 1013.25 × (1 − 2.25577×10⁻⁵·h)<sup>5.25588</sup> hPa</div>
+        <p>It is a calculation, not a reading from the phone’s barometer: a web app cannot access that sensor. Real pressure also rises and falls with the weather, so the true value can differ by a few percent.</p>
+      </details>
+      <details open>
+        <summary tabindex="-1"><span>Good to know</span><button type="button" class="chev" aria-expanded="true" aria-label="Collapse Good to know"></button></summary>
+        <ul>
+          <li id="pBoil">Water boils at a lower temperature when pressure is lower.</li>
+          <li>Because water boils cooler, food cooked in boiling water needs more time at altitude. Oven temperatures are not affected.</li>
+          <li>Half of the air molecules in the atmosphere lie below about 5.6 km (18,000 ft), so pressure there is about half of sea level.</li>
+          <li>Near sea level the pressure drops by about 12 hPa for every 100 m you climb (from the formula above). That is why a 1 hPa change in the weather shifts a barometric altimeter by about 8 m.</li>
+          <li>Sealed bags and bottles packed at low altitude swell as you go up: the air inside keeps its original pressure while the air outside drops (Boyle’s law).</li>
+        </ul>
+      </details>
+      <details open>
+        <summary tabindex="-1"><span>Sources</span><button type="button" class="chev" aria-expanded="true" aria-label="Collapse Sources"></button></summary>
+        <p class="src">NOAA JetStream, “Air Pressure”.<br>USDA Food Safety and Inspection Service, “High Altitude Cooking”.<br>NIST Chemistry WebBook, water vapour pressure (Antoine equation parameters).<br>International Standard Atmosphere (ICAO).</p>
+      </details>
+    </div>
+  </div>
+</div>
+<div class="dlg-wrap" id="o2Dlg" hidden>
+  <div class="dlg info-dlg" role="dialog" aria-modal="true" aria-labelledby="o2Title">
+    <div class="dr-head">
+      <h3 id="o2Title">O₂ vs sea level</h3>
+      <button class="icon" id="o2Close" type="button" aria-label="Close"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="live" id="o2Live">—</div>
+    <div class="info-body">
+      <details open>
+        <summary tabindex="-1"><span>What it means</span><button type="button" class="chev" aria-expanded="true" aria-label="Collapse What it means"></button></summary>
+        <p id="o2Mean">At your current altitude, each breath holds this share of the oxygen a breath holds at sea level.</p>
+      </details>
+      <details open>
+        <summary tabindex="-1"><span>How it is estimated</span><button type="button" class="chev" aria-expanded="true" aria-label="Collapse How it is estimated"></button></summary>
+        <p>The app converts your GPS altitude <i>h</i> (metres) into air pressure with the International Standard Atmosphere formula, then compares it with sea-level pressure:</p>
+        <div class="formula">P = 1013.25 × (1 − 2.25577×10⁻⁵·h)<sup>5.25588</sup> hPa<br>O₂ EST. = P ÷ 1013.25</div>
+        <p>It is a calculation, not a sensor reading. Weather moves the real air pressure up or down by a few percent, and GPS altitude has its own error (see V-ACC).</p>
+      </details>
+      <details open>
+        <summary tabindex="-1"><span>Good to know</span><button type="button" class="chev" aria-expanded="true" aria-label="Collapse Good to know"></button></summary>
+        <ul>
+          <li>Air is about 21% oxygen at every altitude, in Tibet as in Shanghai. What drops is air pressure: the air is thinner, so each breath contains fewer oxygen molecules.</li>
+          <li>O₂ EST. describes the air, not your body. Blood oxygen saturation (SpO₂) is measured with a pulse oximeter or a watch.</li>
+          <li>For most people, a normal SpO₂ reading is 95–100%. Readings are often lower at high elevation.</li>
+          <li>SpO₂ falls as altitude rises, especially above about 2,500 m, in a study of 6,289 healthy, acclimatised people at 15 locations from sea level up to the highest permanent human settlement in the Andes.</li>
+          <li>For home oximeter use, Cleveland Clinic advises calling a healthcare provider at 92% or lower and going to an emergency room at 88% or lower. This app does not measure SpO₂ and is not a medical device.</li>
+        </ul>
+      </details>
+      <details open>
+        <summary tabindex="-1"><span>Sources</span><button type="button" class="chev" aria-expanded="true" aria-label="Collapse Sources"></button></summary>
+        <p class="src">Cleveland Clinic, “Blood Oxygen Level”.<br>Rojas-Camayo J. et al., Thorax 2018;73(8), “Reference values for oxygen saturation from sea level to the highest human habitation in the Andes in acclimatised persons”.<br>APEX / altitude.org, “High Altitude”.</p>
+      </details>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script>
 (() => {
-  const VERSION = 'v2.1.0';
+  const VERSION = 'v2.2.0';
   const $ = id => document.getElementById(id);
   const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),haccWrap:$('haccWrap'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     status:$('status'),statusText:$('statusText'),msg:$('msg'),
@@ -340,6 +435,8 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
       const r = p / P0;
       els.pres.textContent = Math.round(p);
       els.o2.textContent = Math.round(r * 100) + '%';
+      o2info.set(d.alt, p, r);
+      pinfo.set(d.alt, p, r);
     }
     topo.setAlt(d.alt);
     els.alt.classList.toggle('dim', d.alt == null);
@@ -569,6 +666,62 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
     btn.addEventListener('click', () => set(order[(order.indexOf(get()) + 1) % 3]));
     new MutationObserver(label).observe(root, {attributes: true, attributeFilter: ['data-theme']});
     label();
+  })();
+
+  // info popups: only the chevron button folds/unfolds a section (the rest of the title row does nothing)
+  document.querySelectorAll('.info-body details').forEach(d => {
+    const sum = d.querySelector('summary'), btn = sum.querySelector('.chev'), title = sum.querySelector('span').textContent;
+    const sync = () => { btn.setAttribute('aria-expanded', d.open); btn.setAttribute('aria-label', (d.open ? 'Collapse ' : 'Expand ') + title); };
+    sum.addEventListener('click', e => { e.preventDefault(); if (e.target.closest('.chev')){ d.open = !d.open; sync(); } });
+    d.addEventListener('toggle', sync);
+  });
+
+  // ---------- hPa EST. explanation popup ----------
+  // boiling point of water from pressure: Antoine equation, NIST parameters for 344–373 K (log10 P[bar] = A − B / (T[K] + C))
+  const boilC = hPa => 1663.125 / (5.08354 - Math.log10(hPa / 1000)) + 45.622 - 273.15;
+  const pinfo = (() => {
+    const cell = $('pCell'), dlg = $('pDlg'), live = $('pLive'), mean = $('pMean'), boil = $('pBoil'), closeBtn = $('pClose');
+    let last = null, prev = null;
+    function paint(){
+      if (!last){ live.textContent = 'Waiting for a GPS altitude'; return; }
+      const b = boilC(last.p), pct = Math.round(last.r * 100);
+      live.textContent = fmtInt(last.alt) + ' m · ' + Math.round(last.p) + ' hPa · water boils ≈ ' + Math.round(b) + ' °C';
+      mean.textContent = 'hPa EST. is the estimated air pressure at your altitude: the weight of the air above you. Here it is about ' + Math.round(last.p) + ' hPa, ' + pct + '% of sea level.';
+      boil.textContent = 'Water boils at a lower temperature when pressure is lower: about 100 °C at sea level, about ' + Math.round(b) + ' °C here (estimated from the pressure). USDA: the boiling point drops by just under 1 °F for every 500 ft of elevation.';
+    }
+    function open(){ prev = document.activeElement; paint();
+      dlg.querySelectorAll('details').forEach(d => { d.open = true; });
+      dlg.hidden = false; dlg.querySelector('.info-body').scrollTop = 0; closeBtn.focus(); }
+    function close(){ dlg.hidden = true; if (prev && prev.focus) prev.focus(); }
+    cell.addEventListener('click', open);
+    cell.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
+    closeBtn.addEventListener('click', close);
+    dlg.addEventListener('click', e => { if (e.target === dlg) close(); });
+    addEventListener('keydown', e => { if (e.key === 'Escape' && !dlg.hidden) close(); });
+    return {set(alt, p, r){ last = {alt, p, r}; if (!dlg.hidden) paint(); }};
+  })();
+
+  // ---------- O₂ EST. explanation popup ----------
+  const o2info = (() => {
+    const cell = $('o2Cell'), dlg = $('o2Dlg'), live = $('o2Live'), mean = $('o2Mean'), closeBtn = $('o2Close');
+    let last = null, prev = null;
+    function paint(){
+      if (!last){ live.textContent = 'Waiting for a GPS altitude'; mean.textContent = 'At your current altitude, each breath holds this share of the oxygen a breath holds at sea level.'; return; }
+      const pct = Math.round(last.r * 100);
+      live.textContent = fmtInt(last.alt) + ' m · ' + Math.round(last.p) + ' hPa · ' + pct + '%';
+      mean.textContent = 'At your current altitude, each breath holds about ' + pct + '% of the oxygen a breath holds at sea level.';
+    }
+    // every time it opens: all sections expanded, scrolled to the top (folding is not remembered)
+    function open(){ prev = document.activeElement; paint();
+      dlg.querySelectorAll('details').forEach(d => { d.open = true; });
+      dlg.hidden = false; dlg.querySelector('.info-body').scrollTop = 0; closeBtn.focus(); }
+    function close(){ dlg.hidden = true; if (prev && prev.focus) prev.focus(); }
+    cell.addEventListener('click', open);
+    cell.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' '){ e.preventDefault(); open(); } });
+    closeBtn.addEventListener('click', close);
+    dlg.addEventListener('click', e => { if (e.target === dlg) close(); });
+    addEventListener('keydown', e => { if (e.key === 'Escape' && !dlg.hidden) close(); });
+    return {set(alt, p, r){ last = {alt, p, r}; if (!dlg.hidden) paint(); }};
   })();
 
   // ---------- settings: app version, storage, update check ----------
