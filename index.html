@@ -217,6 +217,20 @@ button.chev:active{background:var(--btn);border-color:var(--line)}
 .info-body .src{color:var(--dim);font-size:12.5px;line-height:1.5}
 button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
 
+/* location card: show / hide */
+.locbox{position:relative;min-width:0;transition:height .38s cubic-bezier(.2,.8,.2,1)}
+.locbox .place,.loc-showrow{transition:opacity .28s ease,transform .38s cubic-bezier(.2,.8,.2,1)}
+.loc-showrow{display:flex;justify-content:flex-end}
+.locbox:not(.collapsed) .loc-showrow{position:absolute;right:0;bottom:0;opacity:0;transform:translateY(-6px);pointer-events:none}
+.locbox.collapsed .place{position:absolute;left:0;right:0;bottom:0;opacity:0;transform:translateY(10px) scale(.985);transform-origin:right bottom;pointer-events:none}
+.locbox.anim{overflow:hidden}
+button.loc-show{padding:10px 16px}
+.loc-foot{display:flex;justify-content:flex-end;margin:4px -8px -6px 0}
+button.loc-hide{border:0;background:transparent;padding:4px 8px;font:700 9.5px var(--ui);letter-spacing:.18em;color:var(--dim);opacity:.85;display:inline-flex;align-items:center;gap:6px;border-radius:6px}
+button.loc-hide::after{content:"";width:5px;height:5px;border-right:1.4px solid currentColor;border-bottom:1.4px solid currentColor;transform:translateY(1px) rotate(-135deg)}
+button.loc-hide:active{background:var(--btn);transform:none}
+.locbox.locked button.loc-show,.locbox.locked button.loc-hide{opacity:.35;cursor:default}
+
 @media (max-height:700px){
   .app{gap:9px}
   .place{padding:10px 14px}
@@ -245,12 +259,16 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
     <div class="msg" id="msg" hidden></div>
   </section>
 
-  <section class="place" id="locCell">
-    <div class="ph"><span>Location</span><i id="locSrc" data-src="offline">offline</i></div>
-    <div class="loc-zh" id="locZh">--</div>
-    <div class="loc-en" id="locEn"></div>
-    <div class="loc-sub" id="locSub"></div>
-    <div class="loc-online" id="locOnline" hidden></div>
+  <section class="locbox" id="locBox">
+    <div class="place" id="locCell">
+      <div class="ph"><span>Location</span><i id="locSrc" data-src="offline">offline</i></div>
+      <div class="loc-zh" id="locZh">--</div>
+      <div class="loc-en" id="locEn"></div>
+      <div class="loc-sub" id="locSub"></div>
+      <div class="loc-online" id="locOnline" hidden></div>
+      <div class="loc-foot"><button type="button" class="loc-hide" id="locHide" aria-controls="locCell">Hide loc</button></div>
+    </div>
+    <div class="loc-showrow"><button type="button" class="loc-show" id="locShow" aria-controls="locCell">Show loc</button></div>
   </section>
 
   <section class="stats">
@@ -400,7 +418,7 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
 
 <script>
 (() => {
-  const VERSION = 'v2.3.1';
+  const VERSION = 'v2.4.0';
   const $ = id => document.getElementById(id);
   const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),haccWrap:$('haccWrap'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     status:$('status'),statusText:$('statusText'),msg:$('msg'),
@@ -1007,9 +1025,39 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
     navigator.geolocation.watchPosition(onPos, onErr, {enableHighAccuracy: true, maximumAge: 0, timeout: 20000});
   }
 
+  // location card: SHOW LOC / HIDE LOC (choice kept on this phone; disabled while HOLD is on)
+  const locCard = (() => {
+    const box = $('locBox'), show = $('locShow'), hide = $('locHide'), KEY = 'altimeter.locHidden';
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let locked = false, busy = false;
+    const read = () => { try { return localStorage.getItem(KEY) === '1'; } catch(_) { return false; } };
+    const write = v => { try { v ? localStorage.setItem(KEY, '1') : localStorage.removeItem(KEY); } catch(_) {} };
+    function apply(collapsed){
+      box.classList.toggle('collapsed', collapsed);
+      show.setAttribute('aria-expanded', !collapsed); hide.setAttribute('aria-expanded', !collapsed);
+      show.tabIndex = collapsed ? 0 : -1; hide.tabIndex = collapsed ? -1 : 0;
+    }
+    function toggle(collapsed){
+      if (locked || busy || collapsed === box.classList.contains('collapsed')) return;
+      write(collapsed);
+      if (reduce){ apply(collapsed); return; }
+      busy = true;
+      const from = box.offsetHeight; apply(collapsed); const to = box.offsetHeight;
+      box.classList.add('anim'); box.style.height = from + 'px'; box.offsetHeight;   // reflow, then animate
+      box.style.height = to + 'px';
+      const done = () => { box.style.height = ''; box.classList.remove('anim'); busy = false; };
+      const t = setTimeout(done, 520);
+      box.addEventListener('transitionend', function te(e){ if (e.target === box && e.propertyName === 'height'){ box.removeEventListener('transitionend', te); clearTimeout(t); done(); } });
+    }
+    show.addEventListener('click', () => toggle(false));
+    hide.addEventListener('click', () => toggle(true));
+    apply(read());
+    return { lock(on){ locked = on; box.classList.toggle('locked', on); show.setAttribute('aria-disabled', on); hide.setAttribute('aria-disabled', on); } };
+  })();
+
   // hold: freeze the reading for a photo
   els.hold.addEventListener('click', () => {
-    held = !held;
+    held = !held; locCard.lock(held);
     els.hold.setAttribute('aria-pressed', held);
     els.hold.textContent = held ? 'Release' : 'Hold';
     setStatus(mode, modeText);
