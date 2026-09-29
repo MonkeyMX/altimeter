@@ -26,6 +26,7 @@
   --line:#27305C; --text:#EEF0F7; --dim:#9098BE; --accent:#E9A58F;
   --card:rgba(15,21,48,.74); --btn:rgba(39,48,92,.35); --btn-on-bg:#EEF0F7; --btn-on-text:#0F1530;
   --good:#8FE0B0; --warn:#F4C06A; --bad:#F2877A;
+  --flood:rgba(96,116,210,.16); --flood-deep:rgba(96,116,210,.34); --shore:rgba(200,214,255,1);
   --topo:rgba(84,99,170,.55); --topo-major:rgba(104,120,200,.78); --topo-hi:rgba(233,165,143,.85);
   --display:"Fraunces",Georgia,"Times New Roman",serif;
   --ui:"Inter Tight",-apple-system,system-ui,sans-serif;
@@ -39,6 +40,7 @@
     --line:#C9D0E2; --text:#141A36; --dim:#5D6690; --accent:#C2573F;
     --card:rgba(250,251,253,.82); --btn:rgba(255,255,255,.6); --btn-on-bg:#141A36; --btn-on-text:#F5F7FB;
     --good:#17804A; --warn:#A8670C; --bad:#C23B2E;
+    --flood:rgba(92,110,190,.12); --flood-deep:rgba(80,100,190,.30); --shore:rgba(255,255,255,1);
     --topo:rgba(110,124,180,.30); --topo-major:rgba(92,106,170,.48); --topo-hi:rgba(194,87,63,.8);
   }
 }
@@ -48,6 +50,7 @@
   --line:#C9D0E2; --text:#141A36; --dim:#5D6690; --accent:#C2573F;
   --card:rgba(250,251,253,.82); --btn:rgba(255,255,255,.6); --btn-on-bg:#141A36; --btn-on-text:#F5F7FB;
   --good:#17804A; --warn:#A8670C; --bad:#C23B2E;
+  --flood:rgba(92,110,190,.12); --flood-deep:rgba(80,100,190,.30); --shore:rgba(255,255,255,1);
   --topo:rgba(110,124,180,.30); --topo-major:rgba(92,106,170,.48); --topo-hi:rgba(194,87,63,.8);
 }
 
@@ -386,7 +389,7 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
 
 <script>
 (() => {
-  const VERSION = 'v2.2.1';
+  const VERSION = 'v2.3.0';
   const $ = id => document.getElementById(id);
   const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),haccWrap:$('haccWrap'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     status:$('status'),statusText:$('statusText'),msg:$('msg'),
@@ -458,32 +461,111 @@ button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
     requestAnimationFrame(tick);
   }
 
-  // contour background: an imaginary peak; the highlighted ring steps one line per 250 m of altitude
+  // contour background: an imaginary peak. The coral ring is your altitude — sea level on the outer ring,
+  // Everest (8,849 m) at the summit dot — and everything below you is under water.
+  // Water effects: shore (light edge along the waterline), depth (deeper water = stronger tint),
+  // ripple (slow rings spreading from the shore, ~14 fps), rise (water level animates when the ring changes).
+  // The ring changes only when the altitude crosses a ring boundary by ~65 m (hysteresis), so GPS jitter never
+  // flips it; the altitude number itself is not affected. While HOLD is on no new fixes arrive, so the level stays.
   const topo = (() => {
-    const c = $('topo'), x = c.getContext('2d'); let band = -1;
+    const FX = {shore: true, depth: true, blur: false, ripple: true, rise: true};
+    const c = $('topo'), x = c.getContext('2d');
+    const TOP = 8849, OUTER = 20, SX = 1.15;
+    const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    let ring = -1;            // ring you are on (quantized, with hysteresis so GPS jitter does not flip it)
+    let level = -1;           // water level actually drawn (fractional ring index, animated towards ring)
+    let from = -1, t0 = 0;    // rise animation
+    const ripples = [];       // {born}
+    let raf = 0, lastRipple = 0;
     const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
-    function draw(){
-      const dpr = window.devicePixelRatio || 1, W = c.clientWidth || innerWidth, H = c.clientHeight || innerHeight;
-      c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, W, H);
-      const cx = W * 0.78, cy = H * 0.34, cl = cssVar('--topo'), cm = cssVar('--topo-major'), ch = cssVar('--topo-hi');
-      const hi = band < 0 ? -1 : 6 + (band % 11);   // stays within the rings visible behind the number
-      for (let k = 1; k <= 44; k++){
-        const R = k * 17; x.beginPath();
-        for (let i = 0; i <= 240; i++){
-          const t = i / 240 * Math.PI * 2;
-          const r = R * (1 + 0.10 * Math.sin(3 * t + k * 0.35) + 0.06 * Math.sin(5 * t - k * 0.2) + 0.03 * Math.sin(9 * t + k));
-          const px = cx + r * Math.cos(t) * 1.15, py = cy + r * Math.sin(t);
-          i ? x.lineTo(px, py) : x.moveTo(px, py);
-        }
-        x.strokeStyle = k === hi ? ch : (k % 5 === 0 ? cm : cl);
-        x.lineWidth = k === hi ? 1.5 : (k % 5 === 0 ? 1 : .6); x.stroke();
+    const ease = u => u < 0 ? 0 : u > 1 ? 1 : 1 - Math.pow(1 - u, 3);
+    function ringPath(cx, cy, k, keep){
+      const R = k * 17; if (!keep) x.beginPath();
+      for (let i = 0; i <= 240; i++){
+        const t = i / 240 * Math.PI * 2;
+        const r = R * (1 + 0.10 * Math.sin(3 * t + k * 0.35) + 0.06 * Math.sin(5 * t - k * 0.2) + 0.03 * Math.sin(9 * t + k));
+        const px = cx + r * Math.cos(t) * SX, py = cy + r * Math.sin(t);
+        i ? x.lineTo(px, py) : x.moveTo(px, py);
       }
+      x.closePath();
     }
-    function setAlt(a){ const b = a == null ? -1 : Math.max(0, Math.floor(a / 250)); if (b !== band){ band = b; draw(); } }
-    addEventListener('resize', draw);
-    try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', draw); } catch(_) {}
-    new MutationObserver(draw).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
-    draw();
+    function draw(now){
+      const dpr = window.devicePixelRatio || 1, W = c.clientWidth || innerWidth, H = c.clientHeight || innerHeight;
+      if (c.width !== Math.round(W * dpr) || c.height !== Math.round(H * dpr)){ c.width = Math.round(W * dpr); c.height = Math.round(H * dpr); }
+      x.setTransform(dpr, 0, 0, dpr, 0, 0); x.clearRect(0, 0, W, H);
+      const cx = W * 0.88, cy = H * 0.27, cl = cssVar('--topo'), cm = cssVar('--topo-major'), ch = cssVar('--topo-hi');
+      const water = cssVar('--flood'), shore = cssVar('--shore');
+      const wet = level > 0;
+      if (wet){
+        // water: everything outside the current level
+        x.save(); x.beginPath(); x.rect(0, 0, W, H); ringPath(cx, cy, level, true); x.clip('evenodd');
+        if (FX.depth){
+          const R = level * 17;
+          x.save(); x.translate(cx, cy); x.scale(SX, 1);
+          const g = x.createRadialGradient(0, 0, R * 0.95, 0, 0, R + Math.max(W, H) * 0.8);
+          g.addColorStop(0, water); g.addColorStop(1, cssVar('--flood-deep'));
+          x.fillStyle = g; x.fillRect(-cx / SX - W, -cy - H, (W * 3) / SX, H * 3); x.restore();
+        } else { x.fillStyle = water; x.fillRect(0, 0, W, H); }
+        if (FX.ripple){
+          for (const rp of ripples){
+            const u = (now - rp.born) / 4200; if (u >= 1) continue;
+            ringPath(cx, cy, level + u * 2.6); x.globalAlpha = 0.22 * (1 - u) * (1 - u);
+            x.strokeStyle = shore; x.lineWidth = 1.2; x.stroke(); x.globalAlpha = 1;
+          }
+        }
+        if (FX.shore){
+          ringPath(cx, cy, level);
+          x.strokeStyle = shore; x.lineWidth = 14; x.globalAlpha = 0.07; x.stroke();
+          x.lineWidth = 5; x.globalAlpha = 0.16; x.stroke();
+          x.lineWidth = 1.5; x.globalAlpha = 0.5; x.stroke(); x.globalAlpha = 1;
+        }
+        x.restore();
+      }
+      // contour lines: rings under water can be drawn softer (blur)
+      for (let k = 1; k <= 44; k++){
+        const under = wet && k > level, soft = FX.blur && under;
+        ringPath(cx, cy, k);
+        x.strokeStyle = k === ring ? ch : (k % 5 === 0 ? cm : cl);
+        x.lineWidth = k === ring ? 1.6 : (k % 5 === 0 ? 1 : .6);
+        if (soft){ x.globalAlpha = 0.28; x.lineWidth += 1.4; x.stroke(); x.globalAlpha = 0.35; x.lineWidth -= 1.4; }
+        x.stroke(); x.globalAlpha = 1;
+      }
+      x.fillStyle = cssVar('--text'); x.beginPath(); x.arc(cx, cy, 2.5, 0, Math.PI * 2); x.fill();
+    }
+    function frame(now){
+      raf = 0;
+      let busy = false, rising = false;
+      if (from >= 0){
+        const u = ease((now - t0) / 1600);
+        level = from + (ring - from) * u;
+        if (u >= 1){ level = ring; from = -1; } else busy = rising = true;
+      }
+      if (FX.ripple && !reduce && level > 0 && !document.hidden){
+        if (now - lastRipple > 2600){ ripples.push({born: now}); lastRipple = now; }
+        for (let i = ripples.length - 1; i >= 0; i--) if (now - ripples[i].born > 4200) ripples.splice(i, 1);
+        busy = true;
+      }
+      draw(now);
+      if (busy) schedule(rising ? 0 : 70);   // ripples alone run at ~14 fps to save battery
+    }
+    function schedule(delay){ if (raf) return; raf = delay ? setTimeout(() => { raf = 0; raf = requestAnimationFrame(frame); }, delay) : requestAnimationFrame(frame); }
+    function setRing(r){
+      if (r === ring) return;
+      const prev = ring < 0 ? OUTER : (level > 0 ? level : ring);   // first fix: water rises from sea level
+      ring = r;
+      if (FX.rise && !reduce){ from = prev; t0 = performance.now(); } else { level = ring; from = -1; }
+      schedule();
+    }
+    function setAlt(a){
+      if (a == null) return;
+      const f = 1 + (OUTER - 1) * (1 - Math.min(Math.max(a, 0), TOP) / TOP);
+      if (ring < 0 || Math.abs(f - ring) > 0.65) setRing(Math.max(1, Math.min(OUTER, Math.round(f))));
+    }
+    addEventListener('resize', schedule);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) schedule(); });
+    try { matchMedia('(prefers-color-scheme: dark)').addEventListener('change', schedule); } catch(_) {}
+    new MutationObserver(schedule).observe(document.documentElement, {attributes: true, attributeFilter: ['data-theme']});
+    schedule();
     return {setAlt};
   })();
 
