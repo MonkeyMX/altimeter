@@ -111,9 +111,6 @@ button.themebtn{margin-left:10px;padding:4px 9px;font-size:9.5px;letter-spacing:
 .loc-sub .zh,.loc-online{font-family:var(--zh)}
 .loc-online{margin-top:2px;color:var(--text)}
 .loc-online.err{color:var(--warn)}
-.keyform{display:flex;gap:6px;margin-top:10px}
-.keyform input{flex:1;min-width:0;font:12px ui-monospace,Menlo,monospace;color:var(--text);background:transparent;border:1px solid var(--line);border-radius:8px;padding:8px 10px;-webkit-user-select:text;user-select:text}
-.keyform button{padding:8px 12px}
 
 /* stats */
 .stats{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--line)}
@@ -133,6 +130,64 @@ button[aria-pressed="true"],button[aria-expanded="true"]{background:var(--btn-on
 button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 button:active{transform:translateY(1px)}
 
+/* settings drawer */
+.scrim{position:fixed;inset:0;background:rgba(5,8,20,.5);opacity:0;pointer-events:none;transition:opacity .25s;z-index:20}
+.scrim.open{opacity:1;pointer-events:auto}
+.drawer{position:fixed;top:0;bottom:0;left:0;width:min(86vw,360px);z-index:21;
+  background:var(--bg);border-right:1px solid var(--line);box-shadow:12px 0 40px rgba(0,0,0,.35);
+  transform:translateX(-102%);transition:transform .28s cubic-bezier(.2,.8,.2,1);
+  display:flex;flex-direction:column;overflow:hidden;
+  padding:calc(env(safe-area-inset-top,0px) + 18px) 18px calc(env(safe-area-inset-bottom,0px) + 18px)}
+.drawer.open{transform:none}
+.dr-head{display:flex;justify-content:space-between;align-items:center}
+.dr-head h2{font:600 28px/1.1 var(--display);letter-spacing:-.01em}
+button.gear{width:42px;height:42px;padding:0;display:grid;place-items:center;border-radius:50%;align-self:center}
+button.gear svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round}
+button.icon{width:38px;height:38px;padding:0;display:grid;place-items:center;border-radius:50%}
+button.icon svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
+.dr-body{margin-top:18px;overflow-y:auto;-webkit-overflow-scrolling:touch;display:grid;gap:18px;align-content:start}
+.sec-title{font:700 10.5px var(--ui);letter-spacing:.22em;color:var(--accent);text-transform:uppercase}
+.sec-note{color:var(--dim);font-size:12px;margin-top:4px;line-height:1.45}
+.cur{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:12px;background:var(--card)}
+.cur-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.cur-row span{font:700 9.5px var(--ui);letter-spacing:.18em;color:var(--dim);text-transform:uppercase}
+.tag-on{color:var(--good)!important} .tag-off{color:var(--bad)!important}
+.mono{font:13px ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.02em;word-break:break-all}
+.cur .mono{margin-top:6px}
+.keyrow{display:flex;gap:8px;margin-top:10px}
+.keyrow input{flex:1;min-width:0;font:13px ui-monospace,"SF Mono",Menlo,monospace;color:var(--text);background:transparent;border:1px solid var(--line);border-radius:10px;padding:10px 12px;-webkit-user-select:text;user-select:text}
+.keyrow button,.cur button{padding:10px 14px}
+.cur .actions{display:flex;gap:8px;margin-top:10px}
+.hist{display:grid;gap:8px;margin-top:10px}
+.hist-empty{color:var(--dim);font-size:12px}
+.cur-row span.mono.small{font:12px ui-monospace,"SF Mono",Menlo,monospace;letter-spacing:.02em;text-transform:none;color:var(--text)}
+.cur-row.gap{margin-top:8px}
+.upd-note{color:var(--dim);font-size:12px;line-height:1.45;margin-top:8px}
+.upd-note.ok{color:var(--good)} .upd-note.warn{color:var(--warn)}
+button:disabled{opacity:.45;cursor:default}
+.key-note{color:var(--warn);font-size:12px;line-height:1.45;margin-top:8px}
+#histCount{color:var(--dim);letter-spacing:.12em;margin-left:6px}
+.hk{display:grid;grid-template-columns:1fr auto;gap:4px 10px;align-items:center;border:1px solid var(--line);border-radius:12px;padding:10px 10px 10px 12px;background:var(--card)}
+.hk .meta{grid-column:1;color:var(--dim);font-size:11px}
+.hk .meta b{color:var(--good);font-weight:700;letter-spacing:.14em;font-size:9.5px;margin-left:6px}
+.hk .btnset{grid-column:2;grid-row:1/span 2;display:flex;gap:6px}
+.hk button.icon{width:34px;height:34px}
+button.copy.done{color:var(--good);border-color:var(--good)}
+button.del{color:var(--bad)}
+button.use{padding:0 12px;height:34px;font-size:10px}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);transform:translate(-50%,10px);z-index:40;
+  background:var(--btn-on-bg);color:var(--btn-on-text);font:700 11px var(--ui);letter-spacing:.16em;text-transform:uppercase;
+  padding:9px 16px;border-radius:999px;opacity:0;transition:opacity .2s,transform .2s;pointer-events:none}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+/* confirm dialog */
+.dlg-wrap{position:fixed;inset:0;z-index:30;display:grid;place-items:center;padding:24px;background:rgba(5,8,20,.55)}
+.dlg{width:min(100%,320px);background:var(--bg);border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 20px 60px rgba(0,0,0,.45)}
+.dlg h3{font:600 20px/1.2 var(--display)}
+.dlg p{color:var(--dim);font-size:12.5px;margin-top:8px;line-height:1.5}
+.dlg .mono{color:var(--text);margin-top:8px}
+.dlg .acts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:16px}
+button.danger{background:var(--bad);border-color:var(--bad);color:#fff}
+
 @media (max-height:700px){
   .app{gap:9px}
   .place{padding:10px 14px}
@@ -146,7 +201,7 @@ button:active{transform:translateY(1px)}
 <canvas id="topo" aria-hidden="true"></canvas>
 <main class="app">
   <header class="top">
-    <span class="brand">Altimeter&nbsp;·&nbsp;<span id="ver" class="ver"></span><button id="themeBtn" class="themebtn" type="button" title="Theme: follow system, dark or light">Auto</button></span>
+    <span class="brand">Altimeter<button id="themeBtn" class="themebtn" type="button" title="Theme: follow system, dark or light">Auto</button></span>
     <span class="status" id="status" data-state="search" role="status" aria-live="polite"><span class="dot"></span><span id="statusText">SEARCHING</span></span>
   </header>
 
@@ -167,10 +222,6 @@ button:active{transform:translateY(1px)}
     <div class="loc-en" id="locEn"></div>
     <div class="loc-sub" id="locSub"></div>
     <div class="loc-online" id="locOnline" hidden></div>
-    <form class="keyform" id="keyForm" hidden>
-      <input id="keyInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Amap Web Service key">
-      <button type="submit">Save</button><button type="button" id="keyClear">Clear</button>
-    </form>
   </section>
 
   <section class="stats">
@@ -183,13 +234,64 @@ button:active{transform:translateY(1px)}
   <nav class="btns">
     <button id="holdBtn" type="button" aria-pressed="false">Hold</button>
     <button id="wakeBtn" type="button" aria-pressed="false">Screen on</button>
-    <button id="keyBtn" type="button" aria-expanded="false">Key</button>
+    <button id="setBtn" class="gear" type="button" aria-expanded="false" aria-controls="drawer" aria-label="Settings" title="Settings"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3.2"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-1.87-.34 1.7 1.7 0 0 0-1.03 1.56V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-1.11-1.56 1.7 1.7 0 0 0-1.87.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-1.56-1.03H3a2 2 0 1 1 0-4h.09A1.7 1.7 0 0 0 4.6 8.86a1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34H9a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87V9c.26.6.84 1 1.5 1.03H21a2 2 0 1 1 0 4h-.09c-.66.03-1.24.43-1.51 1.03Z"/></svg></button>
   </nav>
 </main>
 
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="drTitle" aria-hidden="true">
+  <div class="dr-head">
+    <h2 id="drTitle">Settings</h2>
+    <button class="icon" id="drClose" type="button" aria-label="Close settings"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="dr-body">
+    <section>
+      <div class="sec-title">GPS Key</div>
+      <p class="sec-note">Amap Web Service key for the online address line. Stored on this phone only.</p>
+      <div class="cur">
+        <div class="cur-row"><span>Current key</span><span id="curTag" class="tag-off">Not set</span></div>
+        <div class="mono" id="curKey">—</div>
+        <div class="actions" id="curActions" hidden>
+          <button type="button" class="icon copy" id="curCopy" aria-label="Copy current key"></button>
+          <button type="button" id="curClear">Clear</button>
+        </div>
+      </div>
+      <form class="keyrow" id="keyForm">
+        <input id="keyInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Paste a new key">
+        <button type="submit">Save</button>
+      </form>
+      <p class="key-note" id="keyNote" hidden></p>
+    </section>
+    <section>
+      <div class="sec-title">Historical keys <span id="histCount"></span></div>
+      <p class="sec-note">Every key you save is kept here, even after you clear it. Up to 5 keys.</p>
+      <div class="hist" id="hist"></div>
+    </section>
+    <section>
+      <div class="sec-title">App</div>
+      <div class="cur">
+        <div class="cur-row"><span>Version</span><span class="mono small" id="appVer">—</span></div>
+        <div class="cur-row gap"><span>Storage</span><span class="mono small" id="appStore">—</span></div>
+        <div class="actions"><button type="button" id="updBtn">Check for update</button></div>
+        <p class="upd-note" id="updNote" hidden></p>
+      </div>
+    </section>
+  </div>
+</aside>
+
+<div class="dlg-wrap" id="dlg" hidden>
+  <div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgTitle" aria-describedby="dlgText">
+    <h3 id="dlgTitle">Delete this key?</h3>
+    <p id="dlgText">It will be removed from the history on this phone. This cannot be undone.</p>
+    <div class="mono" id="dlgKey"></div>
+    <div class="acts"><button type="button" id="dlgCancel">Cancel</button><button type="button" class="danger" id="dlgOk">Delete</button></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
 <script>
 (() => {
-  const VERSION = 'v2.0.1';
+  const VERSION = 'v2.1.0';
   const $ = id => document.getElementById(id);
   const els = {alt:$('alt'),vacc:$('vacc'),vaccWrap:$('vaccWrap'),hacc:$('hacc'),haccWrap:$('haccWrap'),age:$('age'),lat:$('lat'),lon:$('lon'),pres:$('pres'),o2:$('o2'),
     status:$('status'),statusText:$('statusText'),msg:$('msg'),
@@ -293,8 +395,7 @@ button:active{transform:translateY(1px)}
   // Online (optional): Amap reverse geocoding with the user's own key, stored only on this device.
   const place = (() => {
     const KEY = 'altimeter.amapKey';
-    const $l = {main: $('locZh'), en: $('locEn'), sub: $('locSub'), online: $('locOnline'), src: $('locSrc'),
-      btn: $('keyBtn'), form: $('keyForm'), input: $('keyInput'), clear: $('keyClear')};
+    const $l = {main: $('locZh'), en: $('locEn'), sub: $('locSub'), online: $('locOnline'), src: $('locSrc')};
     let counties = null, towns = null, cur = null, lastCalc = null, offline = null;
     let online = null, onlineErr = '', lastLookup = null, inflight = false;
 
@@ -448,19 +549,12 @@ button:active{transform:translateY(1px)}
       }).catch(() => { $l.main.textContent = 'Place data unavailable'; });
     }
 
-    $l.btn.addEventListener('click', () => {
-      const open = $l.form.hidden; $l.form.hidden = !open; $l.btn.setAttribute('aria-expanded', open);
-      if (open){ $l.input.value = getKey() === 'mock' ? '' : getKey(); $l.input.focus(); }
-    });
-    $l.form.addEventListener('submit', e => {
-      e.preventDefault(); setKey($l.input.value.trim()); $l.form.hidden = true; $l.btn.setAttribute('aria-expanded', 'false');
-      online = null; onlineErr = ''; lastLookup = null; lookupOnline(); draw();
-    });
-    $l.clear.addEventListener('click', () => { setKey(''); $l.input.value = ''; online = null; onlineErr = ''; draw(); });
+    // called by Settings after the current key is saved, switched or cleared
+    function keyChanged(){ online = null; onlineErr = ''; lastLookup = null; lookupOnline(); draw(); }
     addEventListener('online', lookupOnline);
 
     load();
-    return {update};
+    return {update, keyChanged};
   })();
 
   // theme: follow system (default), or forced dark / light; stored on this device only
@@ -475,6 +569,158 @@ button:active{transform:translateY(1px)}
     btn.addEventListener('click', () => set(order[(order.indexOf(get()) + 1) % 3]));
     new MutationObserver(label).observe(root, {attributes: true, attributeFilter: ['data-theme']});
     label();
+  })();
+
+  // ---------- settings: app version, storage, update check ----------
+  const app = (() => {
+    const a = {ver: $('appVer'), store: $('appStore'), btn: $('updBtn'), note: $('updNote')};
+    const hasSW = 'serviceWorker' in navigator && location.protocol === 'https:';
+    let busy = false, reloading = false;
+    const note = (t, cls) => { a.note.textContent = t || ''; a.note.hidden = !t; a.note.className = 'upd-note' + (cls ? ' ' + cls : ''); };
+    const fmt = b => b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB';
+    async function measure(){
+      try {
+        if (!('caches' in window)) throw 0;
+        let bytes = 0, files = 0;
+        for (const name of await caches.keys()){
+          const c = await caches.open(name);
+          for (const req of await c.keys()){ const r = await c.match(req); if (r){ bytes += (await r.clone().blob()).size; files++; } }
+        }
+        let ls = 0; try { for (let i = 0; i < localStorage.length; i++){ const k = localStorage.key(i); ls += (k.length + (localStorage.getItem(k) || '').length) * 2; } } catch(_) {}
+        a.store.textContent = files ? fmt(bytes + ls) + ' · ' + files + ' files offline' : 'Not cached yet';
+      } catch(_) { a.store.textContent = 'Not available here'; }
+    }
+    function state(){
+      a.ver.textContent = VERSION;
+      const offline = navigator.onLine === false;
+      a.btn.disabled = busy || offline || !hasSW;
+      if (!hasSW) note('Update check works in the installed app (GitHub Pages).');
+      else if (offline) note('Offline. Connect to the internet to check for updates.', 'warn');
+      else if (a.note.dataset.sticky !== '1') note('');
+    }
+    if (hasSW) navigator.serviceWorker.addEventListener('controllerchange', () => { if (reloading) location.reload(); });
+    a.btn.addEventListener('click', async () => {
+      if (busy) return; busy = true; a.note.dataset.sticky = '1'; state(); note('Checking GitHub for a new version…');
+      try {
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (!reg) throw new Error('no registration');
+        await reg.update();
+        const nw = reg.installing || reg.waiting;
+        if (nw){
+          reloading = true; note('New version found. Downloading, then the app reloads…', 'ok');
+          nw.addEventListener('statechange', () => { if (nw.state === 'redundant'){ reloading = false; busy = false; note('Update failed. The current version still works offline. Try again later.', 'warn'); state(); } });
+        } else { busy = false; note('You have the latest version (' + VERSION + ').', 'ok'); state(); }
+      } catch(_) { busy = false; note('Could not reach GitHub. The current version still works offline.', 'warn'); state(); }
+    });
+    addEventListener('online', state); addEventListener('offline', state);
+    return {refresh(){ a.note.dataset.sticky = busy ? '1' : ''; state(); measure(); }};
+  })();
+
+  // ---------- settings drawer: GPS key + key history ----------
+  const settings = (() => {
+    const CUR = 'altimeter.amapKey', HIST = 'altimeter.keyHistory', MAX = 5;
+    const g = {btn: $('setBtn'), drawer: $('drawer'), scrim: $('scrim'), close: $('drClose'), form: $('keyForm'), input: $('keyInput'),
+      curKey: $('curKey'), curTag: $('curTag'), curActions: $('curActions'), curCopy: $('curCopy'), curClear: $('curClear'),
+      hist: $('hist'), note: $('keyNote'), count: $('histCount'), dlg: $('dlg'), dlgKey: $('dlgKey'), dlgOk: $('dlgOk'), dlgCancel: $('dlgCancel'), toast: $('toast')};
+    const ICON = {
+      copy: '<svg viewBox="0 0 24 24"><rect x="9" y="9" width="11" height="11" rx="2.5"/><path d="M15 9V6.5A2.5 2.5 0 0 0 12.5 4h-6A2.5 2.5 0 0 0 4 6.5v6A2.5 2.5 0 0 0 6.5 15H9"/></svg>',
+      done: '<svg viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+      del: '<svg viewBox="0 0 24 24"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>'
+    };
+    const read = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : v; } catch(_) { return d; } };
+    const write = (k, v) => { try { v == null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch(_) {} };
+    const getCur = () => read(CUR, '');
+    const getHist = () => { try { const a = JSON.parse(read(HIST, '[]')); return Array.isArray(a) ? a.filter(x => x && typeof x.k === 'string') : []; } catch(_) { return []; } };
+    const setHist = a => write(HIST, JSON.stringify(a));
+    const today = () => { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); };
+    const mask = k => k.length <= 10 ? k : k.slice(0, 6) + '••••••' + k.slice(-4);
+    function remember(k){ const h = getHist(); if (!h.some(x => x.k === k)){ h.unshift({k, added: today()}); setHist(h); } }
+
+    let toastT = null;
+    function toast(t){ g.toast.textContent = t; g.toast.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => g.toast.classList.remove('show'), 1600); }
+    function copy(text, btn){
+      const ok = () => { if (btn){ btn.classList.add('done'); btn.innerHTML = ICON.done; setTimeout(() => { btn.classList.remove('done'); btn.innerHTML = ICON.copy; }, 1500); } toast('Copied'); };
+      const fallback = () => {
+        const t = document.createElement('textarea'); t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+        document.body.appendChild(t); t.select(); t.setSelectionRange(0, text.length);
+        let done = false; try { done = document.execCommand('copy'); } catch(_) {}
+        t.remove(); done ? ok() : toast('Copy not available');
+      };
+      if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(ok, fallback); else fallback();
+    }
+
+    function render(){
+      const cur = getCur();
+      g.curKey.textContent = cur ? mask(cur) : '—';
+      g.curTag.textContent = cur ? 'In use' : 'Not set';
+      g.curTag.className = cur ? 'tag-on' : 'tag-off';
+      g.curActions.hidden = !cur;
+      g.curCopy.innerHTML = ICON.copy;
+      const h = getHist();
+      g.count.textContent = h.length + ' / ' + MAX;
+      g.hist.replaceChildren();
+      if (!h.length){ const e = document.createElement('div'); e.className = 'hist-empty'; e.textContent = 'No saved keys yet.'; g.hist.append(e); return; }
+      h.forEach(item => {
+        const row = document.createElement('div'); row.className = 'hk';
+        const k = document.createElement('div'); k.className = 'mono'; k.textContent = mask(item.k);
+        const meta = document.createElement('div'); meta.className = 'meta'; meta.textContent = 'Added ' + (item.added || '—');
+        if (item.k === cur){ const b = document.createElement('b'); b.textContent = 'IN USE'; meta.append(b); }
+        const set = document.createElement('div'); set.className = 'btnset';
+        if (item.k !== cur){ const u = document.createElement('button'); u.type = 'button'; u.className = 'use'; u.textContent = 'Use';
+          u.addEventListener('click', () => { write(CUR, item.k); render(); place.keyChanged(); toast('Key in use'); }); set.append(u); }
+        const c = document.createElement('button'); c.type = 'button'; c.className = 'icon copy'; c.innerHTML = ICON.copy; c.setAttribute('aria-label', 'Copy key');
+        c.addEventListener('click', () => copy(item.k, c));
+        const d = document.createElement('button'); d.type = 'button'; d.className = 'icon del'; d.innerHTML = ICON.del; d.setAttribute('aria-label', 'Delete key');
+        d.addEventListener('click', () => askDelete(item.k));
+        set.append(c, d); row.append(k, set, meta); g.hist.append(row);
+      });
+    }
+
+    let pending = null, lastFocus = null;
+    function askDelete(k){ pending = k; g.dlgKey.textContent = mask(k); g.dlg.hidden = false; g.dlgCancel.focus(); }
+    function closeDlg(){ pending = null; g.dlg.hidden = true; }
+    g.dlgCancel.addEventListener('click', closeDlg);
+    g.dlg.addEventListener('click', e => { if (e.target === g.dlg) closeDlg(); });
+    g.dlgOk.addEventListener('click', () => {
+      if (pending != null){
+        setHist(getHist().filter(x => x.k !== pending));
+        if (getCur() === pending){ write(CUR, null); place.keyChanged(); }   // deleting the key in use also stops using it
+        toast('Key deleted');
+      }
+      closeDlg(); note(''); render();
+    });
+
+    function open(){ lastFocus = document.activeElement; render(); app.refresh(); g.drawer.classList.add('open'); g.scrim.classList.add('open');
+      g.drawer.setAttribute('aria-hidden', 'false'); g.btn.setAttribute('aria-expanded', 'true'); setTimeout(() => g.close.focus(), 50); }
+    function close(){ closeDlg(); g.drawer.classList.remove('open'); g.scrim.classList.remove('open');
+      g.drawer.setAttribute('aria-hidden', 'true'); g.btn.setAttribute('aria-expanded', 'false'); if (lastFocus && lastFocus.focus) lastFocus.focus(); }
+    g.btn.addEventListener('click', open);
+    g.close.addEventListener('click', close);
+    g.scrim.addEventListener('click', close);
+    addEventListener('keydown', e => { if (e.key === 'Escape'){ if (!g.dlg.hidden) closeDlg(); else if (g.drawer.classList.contains('open')) close(); } });
+    // swipe left to close
+    let sx = null;
+    g.drawer.addEventListener('touchstart', e => { sx = e.touches[0].clientX; }, {passive: true});
+    g.drawer.addEventListener('touchend', e => { if (sx != null && sx - e.changedTouches[0].clientX > 70) close(); sx = null; });
+
+    const note = t => { g.note.textContent = t || ''; g.note.hidden = !t; };
+    g.input.addEventListener('input', () => note(''));
+    g.form.addEventListener('submit', e => {
+      e.preventDefault(); const k = g.input.value.trim(); if (!k) return;
+      const h = getHist();
+      if (h.some(x => x.k === k)){          // same key saved before: no duplicate, just use it
+        write(CUR, k); g.input.value = ''; note(''); render(); place.keyChanged(); toast('Already saved · now in use'); return;
+      }
+      if (h.length >= MAX){ note('History is full (' + MAX + ' keys). Delete one below before saving a new key.'); return; }
+      write(CUR, k); remember(k); g.input.value = ''; note(''); render(); place.keyChanged(); toast('Key saved');
+    });
+    g.curCopy.addEventListener('click', () => { const k = getCur(); if (k) copy(k, g.curCopy); });
+    g.curClear.addEventListener('click', () => { write(CUR, null); render(); place.keyChanged(); toast('Key cleared · kept in history'); });
+
+    // keys saved before this version go into the history once
+    const existing = getCur(); if (existing) remember(existing);
+    render();
+    return {open};
   })();
 
   function median(a){ const s = [...a].sort((x, y) => x - y); const n = s.length; return n % 2 ? s[(n - 1) / 2] : (s[n / 2 - 1] + s[n / 2]) / 2; }
@@ -541,7 +787,6 @@ button:active{transform:translateY(1px)}
     navigator.serviceWorker.register('sw.js').catch(() => {});
   }
 
-  $('ver').textContent = VERSION;
   showAcc(els.vacc, els.vaccWrap, null); showAcc(els.hacc, els.haccWrap, null);
   requestAnimationFrame(tick);
   start();
